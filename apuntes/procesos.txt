@@ -1,0 +1,261 @@
+Existe una librería de funciones (API) para poder realizar las llamadas desde C.
+
+Estas forman el interfaz POSIX. Tendremos que incluir el fichero "unistd.h", donde están definidos sus prototipos. Puesto que es una librería del sistema, utilizaremos los símbolos "<", ">".
+
+Normalmente, cuando se produce algún error, las rutinas del API retornan el valor -1.
+
+En total disponemos de unas 41 llamadas al sistema, que describimos a continuación agrupadas por
+sus funciones.
+
+Las funciones del sistema trabajan sobre las abstracciones de proceso, fichero y tiempo.
+
+Proceso:
+    1. Gestión de procesos.
+    2. Señales.
+Fichero:
+    3. Gestión de ficheros
+    4. Gestión de directorio y el sistema de ficheros
+Tiempo:
+    5. Gestión de tiempo
+
+En caso de error en una llamada al sistema, se actualiza automáticamente una variable global
+llamada "errno" que nos indica un código con el motivo de dicho error.
+Se define en el fichero <sys/errno.h>, el cual deberemos incluir si queremos acceder a ella.
+
+    extern int * __error();
+
+    #define errno (* __error())
+
+La función __error() retorna un puntero a un campo de la estructura que define los hilos (threads) hijos del hilo inicial.
+
+Para el hilo inicial y procesos que no tienen hilos (procesos pesados), retorna un puntero a la variable errno global.
+
+Observando el #define anterior llegamos a la conclusión de que cuando nosotros escribimos "errno" en nuestro código, realmente estamos obteniendo un puntero a un entero, pero esto será transparente para nosotros.
+
+Cuando una llamada al sistema genera un error, retornará un valor negativo (normalmente -1) y establece la variable errno con un valor numérico que indica el motivo.
+
+Este valor permanecerá hasta que otra llamada al sistema provoque otro error, Por esto hay que llevar cuidado y consultar el valor de errno justo después de haberse producido el error.
+
+La función perror()
+Aparte, existe la función perror(), que da un mensaje (en inglés) sobre el error producido.
+
+-------------------------------------------------------------------------------------------------------------------------
+fork()
+
+El único modo de que el núcleo de Unix cree un nuevo proceso es mediante la ejecución de la llamada fork() realizada por un proceso existente.
+
+Esta función devuelve un valor numérico que será distinto para el padre y para el hijo. El núcleo devuelve un valor cero (0) para el proceso hijo, mientras que al proceso padre le devuelve el identificador del proceso hijo.
+
+El motivo de esto es que un proceso padre puede tener varios hijos mientras que los hijos tienen un solo padre (existe una llamada al sistema que puede permitir al hijo obtener el identificador de su proceso padre: getppid()).
+
+El proceso hijo es una copia exacta del proceso padre, de hecho el proceso hijo tiene una copia del espacio de datos, heap (memoria dinámica) y de la pila. Sin embargo, el espacio de direcciones de datos del proceso padre será distinto del espacio de direcciones del proceso hijo, lo cual implica que ambos procesos no comparten los datos, sólo se hace un copia para el hijo. Habitualmente el padre y el hijo compartirán el segmento de código ya que este es de sólo lectura.
+
+Algunas implementaciones no realizan una copia completa del padre dado que normalmente la operación fork es seguida de exec. En su lugar se emplea la técnica copia-sobre-escritura.
+
+En general, no conoceremos nunca si el hijo se ejecuta antes que el padre o la inversa. Esto dependerá del algoritmo de planificación.
+
+
+Ambos procesos tendrán iguales:
+    • UID y GID
+    • Código
+    • Descriptores de ficheros. Todos los ficheros que tiene abiertos el padre también los tendrá el hijo, compartiendo los punteros de fichero. Dicho de otro modo, si el proceso hijo realiza un desplazamiento del puntero (lseek) el puntero del padre también se desplaza
+    • Gestión de señales: idem.
+    • Directorio de trabajo
+    • Máscara de protección
+    • Contador de programa: ambos procesos ejecutarán la siguiente instrucción a la llamada fork(), pero cada uno en su su copia del código.
+
+Pero tendrán diferencias:
+• PID: puesto que son procesos diferentes tendrán un PID diferente y único.
+• PPID: del mismo modo, el PID del proceso padre de ambos es diferente.
+• Se anulan las posibles alarmas pendientes.
+• Cada proceso tendrá su propio espacio de proceso.
+• ¡Las variables son copias (no se comparten)!
+
+-------------------------------------------------------------------------------------------------------------------------
+wait y waitpid
+Cuando un proceso hijo acaba se debe notificar a su padre el estado de terminación de éste. De algún modo el proceso padre deberá estar esperando la respuesta del hijo. Esto se realiza mediante la llamada al sistema wait().
+
+El proceso que ejecuta la llamada al sistema wait() quedará en espera (se bloquea) hasta que se le notifique que cualquiera de sus hijos ya ha acabado y entonces seguirá ejecutando la línea de código siguiente a wait().
+
+Existe una variante de esta llamada, es waitpid(). En este caso el proceso que ejecuta waitpid() esperará a un hijo concreto.
+
+Podemos controlar la ejecución del proceso hijo llamando a wait en el padre.
+wait fuerza al padre a detener la ejecución hasta que el proceso hijo haya terminado.
+wait retorna el processID del proceso hijo que termina y almacena su status en el entero al que apunta el puntero que debe llevar como argumento (statusp) a menos que el argumento sea NULL en cuyo caso no almacena el status.
+
+wait retorna -1 en caso de fallo.
+La finalización de un proceso se notifica a su proceso padre a través de una señal SIGCHLD.
+
+pid_t wait(int *stacloc);
+pid_t waitpid (pid_t pid, int *statloc, int opcion);
+
+el argumento statloc es un puntero a un entero.
+
+• wait puede bloquear al llamador hasta que un hijo termine, mientras que waitpid tiene una
+opción (parámetro) que evita el bloqueo.
+
+• waitpid no espera la terminación del primer hijo, tiene una opción que permite controlar a que
+proceso esperar.
+
+La interpretación del argumento pid para waitpid depende de su valor:
+• pid == -1 espera por cualquier hijo (equivalente a wait).
+• pid > 0 espera por el hijo cuyo PID es igual a pid.
+• pid == 0 espera por cualquier hijo cuyo ID grupo es igual al del proceso llamador.
+• pid < -1 espera por cualquier hijo cuyo ID grupo es igual al valor absoluto de pid.
+
+wait da error sólo si el proceso llamador no tiene hijos.
+waitpid dará error si el proceso o grupo especificado no existe o no es hijo del llamador. Otro posible error de retorno es la interrupción de la llamada por una señal.
+
+Declaración:
+    pid_t wait(int *status)
+    pid_t waitpid(pid_t wpid, int *status, int options)
+Uso:
+    pid = wait(&estado)
+    pid = waitpid(int, &estado, int)
+
+    int options:
+        nos permite especificar distintas opciones unidas por el operador OR de bits "|". Las opciones pueden ser:
+            • WNOHANG: utilizado para indicar que la llamada no debería bloquear la ejecución si no hay procesos que deseen informar de su estado.
+            • WUNTRACED: si se establece, los hijos del proceso actual que se detengan debido a las señales SIGTTIN, SIGTTOU, SIGTSTP o SIGSTOP también informan de su estado.
+
+La llamada a wait, retorna el PID del proceso que ha terminado, así como el estado, que es un valor hexadecimal 0x0000, donde los dos primeros (los de mayor peso) indican el estado del proceso hijo a la salida (lo que ha especificado en exit(n)) y los dos últimos (los de menor peso) el estado de terminación (si es 00 es que ha terminado bien).
+
+Si wait termina por otros motivos distintos de que algún proceso hijo haya terminado (por ejemplo, que haya llegado una señal), se nos retorna -1, y se establece la variable global errno.
+
+Las llamadas waitpid(), también funcionan del mismo modo. Además, si se ha especificado la opción WNOHANG y no hay hijos terminados, se retorna 0.
+
+
+-------------------------------------------------------------------------------------------------------------------------
+exit
+
+Esta función pone fin a la ejecución de un proceso. Su sintaxis es:
+
+    #include <stdlib.h>
+    void exit (int estado);
+
+    #include <unistd.h>
+    void _exit(int estado);
+
+Es conveniente devolver un valor en exit() ya que de lo contrario se devuelve basura en el código del estado del proceso. Por convención se devuelve cero si no hay error y un código distinto de cero si hay error.
+
+Terminaciones normales:
+
+    1. Ejecutar un return desde la función main. Lo que es esquivalente a invocar a exit.
+
+    2. Llamar a la función exit. Esta función se define en ANSI C. Dado que ANSI C no trata con descriptores de archivos, procesos múltiples, ni control de trabajos, la definición de esta función es incompleta en los sistemas UNIX.
+
+    3. Llamar a la función _exit. Esta función se invoca por exit y maneja los detalles específicos de UNIX. La función se especifica en POSIX.1.
+
+Terminaciones anormales:
+
+    1. Llamando a la función abort. Esto es un caso especial del siguiente caso, dado que genera la señal SIGABORT.
+
+    2. Cuando el proceso recibe determinadas señales. Dichas señales pueden ser generadas por el propio proceso, por otros procesos o por el kernel.
+
+Esta llamada provoca las siguientes acciones. Cuando un programa en C ejecuta la llamada al
+sistema exit, se realizan las siguientes, acciones:
+
+    • se confirman los cambios de los buffers de los ficheros
+    • se cierran todos los ficheros (descriptores de fichero)
+    • se eliminan ficheros temporales
+    • se notifica al proceso padre la terminación mediante el envío de la señal SIGCHLD
+    • se establece como PPID de todos los procesos que hayan quedado huérfanos el valor 1, que equivale al proceso INIT.
+    • si el proceso que ha terminado el es padre de todos los procesos de un grupo, se envían las señales SIGHUP y SIGCONT a todos los procesos huérfanos del grupo.
+    • si el proceso que ha terminado es un proceso controlador (intro), se envía la señal SIGHUP al proceso de primer plano (foreground) que controla el terminal y se prohibe el acceso al terminal controlador.
+
+
+-------------------------------------------------------------------------------------------------------------------------
+exec
+
+Cuando un proceso hace una llamada exec(), su código se reemplaza por el correspondiente al del nuevo programa que se quiere ejecutar.
+Concretamente, exec() reemplaza el segmento de código, datos, heap y pila del proceso que hace la llamada por el correspondiente al programa que se quiere ejecutar, el nuevo programa comienza ejecutando su función main.
+
+El identificador del proceso no cambia ya que no se ha creado ningún nuevo proceso (además hay otras características del proceso invocante que se mantienen como: identificador real de usuario y de grupo, el identificador de sesión, el identificador de grupo de procesos, directorio actual de trabajo, directorio root, máscara de creación de ficheros, señales pendientes, etc. El identificador efectivo de usuario y grupo dependerá de si está activo o no el bit de usuario o grupo para el fichero que se vaya a ejecutar).
+
+Existen seis funciones exec que únicamente se diferencian en la forma
+de pasar los argumentos. Sus sintaxis también se muestran en la tabla:
+
+    execl (const char *path, char *const arg(), arg1, ..., NULL);
+    execlp(const char *file, char *const arg(), arg1, ..., NULL);
+
+    execv (const char *path, char *const argv[]);
+    execvp(const char *file, char *const argv[]);
+
+    execve(const char *path, char *const argv[], char *consst envp[]);
+    execle(const char *path, char *const arg(), arg1, ..., NULL, char *consst envp[]);
+
+No retornan nada si tienen éxito, -1 si error.
+
+La primera diferencia entre estas funciones es que cuatro aceptan un pathname de archivo como argumento y las dos restantes un nombre de archivo.
+Si el archivo especificado no es ejecutable, se asume que es un programa shell e intenta invocar a /bin/sh como el nombre de archivo como argumento.
+
+Otra diferencia afecta al paso de la lista de argumentos ("l" de lista y "v" de vector). Las funciones execl, execlp y execle, requieren que los argumentos del nuevo programa se especifiquen por separado y que se marque el fin de los argumentos con un puntero nulo.
+
+Para las otras funciones, construiremos una matriz de punteros a los argumentos, y se pasa como argumento la dirección de la matriz.
+
+Las funciones que acaban con "e" permiten pasar un puntero a una matriz de punteros a la cadena de entorno. Las otras funciones usan la variable environ (variable global que contiene la dirección de la matriz de punteros, extern char **environ) en el proceso llamador para copiar la lista de entorno.
+
+En la mayoría de las implementaciones sólo una de estas funciones (execve) es una llamada al sistema. Las otras son funciones de biblioteca que invocan a ésta.
+
+El nuevo programa hereda del proceso invocador las siguientes propiedades:
+• Los identificadores del proceso, de grupo y de sesión,
+• El terminal de control,
+• Tiempo restante del reloj de alarma,
+• Directorios actual y root,
+• Mascara de creación de archivos,
+• Bloqueo de archivos,
+• Mascara de señales y señales pendientes,
+• Límites de recursos.
+
+
+
+execl() Toma el Path del programa ejecutable como primer argumento. El resto de los argumentos son una lista de argumentos de la línea de comandos para el nuevo programa (argv[]).
+
+    #incluye <unistd.h>
+    ...
+    execl ("/bin/cat", "cat", "f1", "f2", NULL);
+    execl ("a.out", "a.out", NULL);
+
+
+execle() Igual que execl , excepto que el final de la lista de argumentos esta seguido por un puntero a una lista de caracteres terminada por un NULL que se pasa como el entorno del nuevo programa .
+
+    #incluye <unistd.h>
+    ...
+    static char *env[] = { "TERM=ansi", "PATH=/bin:/usr/bin", NULL };
+    ...
+    execle ("/bin/cat","cat","f1","f2",NULL,env);
+
+
+execv() Toma el nombre del Path del programa ejecutable como su primer argumento. El segundo argumento es un puntero a una lista de punteros a caracteres que se pasa como argumentos en la linea de comandos para el nuevo programa.
+
+    #incluye <unistd.h>
+    ...
+    static char *args[] = {"cat","f1","f2",NULL};
+    ...
+    execv ("/bin/cat",args);
+
+
+execve() Igual que execv excepto que el tercer argumento el un puntero a una lista de caracteres que pasa el entorno para el nuevo programa.
+
+    #incluye <unistd.h>
+    ...
+    static char *env[] = { "TERM=ansi", "PATH=/bin:/usr/bin", NULL };
+    static char *args[] = { "cat", "f1", "f2", NULL };
+    ...
+    execle ("/bin/cat",args,env);
+
+
+execlp() Igual que execl con la diferencia de que el nombre del programa no tiene que ser el nombre del Path y puede ser un programa shell en lugar de un módulo ejecutable.
+
+    #incluye <unistd.h>
+    ...
+    execlp ("ls", "ls", "-1", "/usr", NULL);
+
+
+execvp() Igual que execv, solo que el nombre del programa no tiene que ser el nombre de Path, y puede ser un programa Shell en lugar de un módulo ejecutable.
+
+    #incluye <unistd.h>
+    ...
+    static char *args[] = { "cat", "f1", "f2", NULL };
+    ...
+    execv ("cat", args);

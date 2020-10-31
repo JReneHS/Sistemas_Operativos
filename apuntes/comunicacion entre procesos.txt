@@ -1,0 +1,178 @@
+comunicacion entre procesos, se usan pipes
+
+el comando kill sirve paraa mandar señales al sistema operativo
+
+los pipes son solo unidireccionales.
+si queremos que haya intercomunicacion entre procesos se necesitan 2 pipes
+
+tienen un problema, no pueden generar comunicacion entre diferentes maquinas
+
+para intercomunicar maquinas se usan sockets o la bola de mensajes, paso de mensajes, pero todos utilizan los sockets para funcionar
+
+tambien otro tipo de intercomunicacion entre procesos es la memoria compartida, pero requiere un mecanismo de sincronizacion para poder usarla
+
+****************Pipes sin nombre*******************
+
+al inicio el pipe debe ser confnigurado en el sentido que se indique el flujo de informacion a travez de el.
+
+el que manda la informacion se aciva la parte de escritura y se cierra la parte de lectura, y viseversa para quien recibe la informacion se cierra el canal de esritura y se abre el de lectura
+
+no es una buena pracsis hacer modificaciones a la configuracion del pipe para invertir el sentido, lo mejor es generar un segundo pipe
+
+
+
+para la resolucion de multiplicacion de matrices hay 3 casos
+
+# procesos < # filas
+# procesos = # filas
+# procesos > # filas
+
+
+Hay varias formas de IPC (Inter-Process Communication):
+
+Memoria compartida.
+Algún otro recurso compartido (archivo, base de datos, etc.).
+Pasaje de mensajes
+BSD/POSIX sockets
+Un socket es el extremo de una comunicación (enchufe)
+    Para usarlo hay que conectarlo
+    Una vez conectado se puede leer y escribir de él
+    Hacer IPC es como hacer E/S. !
+    Los detalles los vamos a ver en la práctica.
+
+Sincrónico
+    El emisor no termina de enviar hasta que el receptor no recibe.
+    Si el mensaje se envió sin error suele significar que también se recibió sin error.
+    En general involucra bloqueo del emisor.
+
+Asincrónico
+El emisor envı́a algo que el receptor va a recibir en algún otro momento.
+Requiere algún mecanismo adicional para saber si el mensaje llegó.
+Libera al emisor para realizar otras tareas, no suele haber bloqueo, aunque puede haber un poco (por ejemplo, para copiar el mensaje a un buffer del SO).
+
+
+Algunas de las funciones relacionadas con el manejo de procesos son las siguientes:
+1. fork         crea un nuevo proceso.
+2. wait         espera a que el proceso hijo pare o termine.
+3. exit         termina el proceso en curso.
+4. _exit        termina el proceso en curso sin limpieza de I/O.
+5. execl        ejecuta un programa con una lista de argumentos.
+6. execv        ejecuta un programa con un vector de argumentos.
+7. execle       ejecuta un programa con una lista de argumentos y un vector de entorno.
+8. execlp       ejecuta un programa con una lista de argumentos y un PATH de búsqueda.
+9. execvp       ejecuta un programa con un vector de argumentos y un PATH de búsqueda.
+10. getuid      obtiene el user-ID.
+11. getpid      obtiene el process-ID.
+12. getppid     obtiene el parent-process-ID.
+13. getpgr      obtiene el process-group-ID.
+14. getgid      obtiene el group-ID.
+
+Un proceso comprende todo el entorno de ejecución del programa, es decir, desde las variables, los ficheros abiertos, el directorio en el que reside, información acerca de usuario que ejecuta el proceso y el terminal donde lo ejecuta así como el código del programa.
+
+El sistema operativo nos permite ver el estado de los procesos en un determinado momento mediante
+la orden ps:
+
+PID     TTY     STAT    TIME    COMMAND
+1615    p2      S       0:00    -bash
+2420    p2      S       0:00    man ps
+...
+
+donde:
+    PID es el identificador de proceso.
+    TTY terminal asociada a ese proceso.
+    STAT estado en el que están los procesos, S dormido, R ejecutándose, ... (ver man)
+    TIME es el tiempo que lleva el proceso ejecutándose.
+    COMMAND es la orden correspondiente al proceso.
+
+Mediante la orden man consultaremos las distintas opciones de la orden ps. Algunas interesantes:
+-l: listado largo
+-u: nombre del usuario
+-a: procesos de otros usuarios
+-f: representa en una especie de árbol el parentesco entre los procesos
+Existen otras opciones que se pueden mirar en man ps
+
+
+
+La orden top
+Nos permite ver de forma dinámica el estado del sistema en general y el estado de los procesos, el tiempo de CPU consumido, la memoria consumida, la prioridad asignada a los procesos, etc.
+
+
+La IEEE desarrolló una serie de estándares denominados POSIX (Portable Operating System Interface) que especifican la interfaz entre el sistema operativo y el usuario de modo que los programas sean transportables a través de diferentes plataformas.
+De entre los diferentes miembros del grupo de estándares nosotros nos centraremos en el POSIX.1 que especifica la API(Lenguaje C).
+
+
+Cada usuario del sistema se identifica por un número único denominado ID de usuario o UID, y pertenece a un grupo de usuarios, que posee su ID de grupo o GID
+
+El sistema reconoce a un usuario privilegiado denominado superusuario (normalmente este usuario accede al sistema como root). El superusuario tiene UID = 0 y GID = 1
+
+Cada proceso tiene dos pares de IDs – el real y el efectivo.
+
+Un proceso sin privilegios de superusuario puede enviar señales a otro proceso sólo si el UID real o efectivo del emisor iguala al UID real del receptor.
+
+Existen tres llamadas al sistema que pueden cambiar las credenciales. Si un proceso llama a exec para ejecutar un programa instalado en modo suid, el kernel cambia el UID efectivo del proceso al del propietario del archivo. De la misma forma, si el programa esta instalado en modo sgid, el kernel cambia el GID efectivo del proceso llamador.
+
+# include <sys/types.h>
+# include <unistd.h>
+
+pid_t getpid(void)  Retorna: ID del proceso que la invoca
+pid_t getppid(void) Retorna: ID del padre
+
+pid_t getuid(void)  Retorna: ID real de usuario
+pid_t geteuid(void) Retorna: ID efectivo de 
+
+pid_t getgid(void)  Retorna: ID real del grupo
+pid_t getegid(void) Retorna: ID efectivo del grupo
+
+-------------------------------------------------------------------------------------------------------------------------
+
+Declaración:
+    pid_t getpid(void)
+    pid_t getppid(void)
+Uso:
+    pid = getpid()
+    ppid = getppid()
+
+getpid: Obtener el identificador único (PID) del proceso que haga la llamada. Se suele utilizar para construir nombres de ficheros temporales.
+
+getppid: Obtener el identificador único del proceso padre (PPID) del proceso llamador.
+
+-------------------------------------------------------------------------------------------------------------------------
+
+Declaración:
+    uid_t getuid(void)
+    uid_t geteuid(void)
+    gid_t getgid(void)
+Uso:
+    uid = getuid()
+    euid = geteuid()
+    gid = getgid()
+
+getuid(): Obtener el ID del propietario real del proceso llamador.
+    Puesto que el usuario real puede dar permisos adicionales a otros usuarios durante la ejecución de procesos "set-user-ID",getuid() se utiliza para determinar el ID del usuario real.
+
+geteuid(): Obtener el ID del propietario efectivo del proceso llamador.
+
+getgid(): Obtener el ID de grupo del propietario El propietario real es el usuario que invocó el programa.
+
+-------------------------------------------------------------------------------------------------------------------------
+
+Declaración:
+    pid_t getpgrp(void)
+    pid_t getpgid(pid_t pid)
+Uso:
+    pgrp = getpgrp()
+    pgid = getpgid(pid)
+
+getpgrp(): Obtener el identificador de grupo PID al que pertenece el proceso actual.
+
+getpgid(pid): Obtener el identificador de grupo PID al que pertenece el proceso especificado. Si pid es 0, funciona exactamente igual que getpgrp().
+
+
+Los grupos de procesos se utilizan para distribución de señales, y por los terminales para regular peticiones de su entrada:
+    los procesos que están en el mismo grupo en el que el terminal es un proceso de primer plano (foreground) podrán leer, mientras que el resto se pueden bloquear mediante una señal si intentasen leer.
+
+Estas llamadas se utilizan, por tanto, por programa como el shell (sh) para crear grupos de procesos para la implementación de trabajos de control. 
+
+Tenemos además dos llamadas adicionales: tcgetpgrp() y tcsetpgrp(), que se utilizan para obtener y establecer el grupo de procesos del terminal de control.
+
+-------------------------------------------------------------------------------------------------------------------------

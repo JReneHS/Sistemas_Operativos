@@ -1,0 +1,26 @@
+-------------------------------------------------------------------------------------------------------------------------
+
+Practicas: La practicas se deberán entregar con un reporte hecho a computadora (El reporte debe contener la descripción de la práctica, el diagrama de flujo de la solución, descrito a detalle, evidencia del buen funcionamiento de la practica por medio de imágenes que capturen a detalle el funcionamiento y el resultado ). Se entregara además el código de la práctica. 
+
+Practica 2: 
+    Envió de imágenes por medio de pipes desde el proceso padre a los hijos y viceversa. En esta práctica lo que se pretende lograr, es que el proceso padre tome al menos 10 diferentes imágenes jpeg y envíe cada imagen a un hijo diferente por medio del pipe, el hijo al recibir la imagen tendrá que cargarla como una matriz RGB y generar 3 copias de esa imagen, la primer copia se cambiara el valor R a 255 de cada pixel de la imagen, la segunda copia se cambiara el valor G a 255 y en la tercer copia se cargara el valor B a 255, esto provocara que la primera copia se vea saturada en color rojo, la segunda copia se verá saturada en color verde y la tercera copia severa saturada en color azul. Al final las 3 copias modificadas deberán ser regresadas al padre para que las almacene 
+
+Practica 3: 
+    Sincronización entre procesos. Se deben generar 4 procesos productores y 3 consumidores. 
+        (Saber crear y manejar procesos y manejo de memoria compartida, tambien sistemas de sincronizacion)
+    El sistema de sicronizacion evita que dos procesos ingresen al mismo tiempo en la seccion características.
+        Procesamiento paralelo
+        es un sistema de produccion:
+            Los productores generan diferentes valores en cualquier alocacion de memoria compartidad.
+            
+            Cada proceso tiene como máximo un uso de 100 producciones
+        
+            Los consumidores deben consumir todo lo que está en la memoria SIN DUPLICAR VALORES.
+
+            Cuando se consume un dato se debe buscar la forma de notificar que ya no se consuma ese valor.
+
+            deben saber cuando YA NO VAN A COSUMIR (puede ser una locacion de memoria que lleve el conteo de consumos)
+
+            impresion de los consumidores
+                C1: aa 1
+                En vez de mandarlos a la terminal, mandarlos a un archivo (un archivo por consumidor)

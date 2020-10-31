@@ -45,6 +45,8 @@
 # Kernel Module Compile Results
 *.mod*
 *.cmd
+*.mp4
+**/.mp4
 .tmp_versions/
 modules.order
 Module.symvers
